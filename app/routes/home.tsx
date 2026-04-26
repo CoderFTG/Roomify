@@ -1,8 +1,8 @@
-import { ArrowRight, ArrowUpRight, Clock, Layers } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Clock, Layers, Loader2 } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import Button from "../../components/ui/Button";
 import Upload from "../../components/Upload";
-import { useNavigate } from "react-router";
+import { useNavigate, useOutletContext } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { createProject, getProjects } from "../../lib/puter.actions";
 
@@ -15,14 +15,17 @@ export function meta() {
 
 export default function Home() {
   const navigate = useNavigate();
+  const { userName } = useOutletContext<AuthContext>();
   const [projects, setProjects] = useState<DesignItem[]>([]);
   const isCreatingProjectRef = useRef(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleUploadComplete = async (base64Image: string) => {
     try {
 
       if (isCreatingProjectRef.current) return false;
       isCreatingProjectRef.current = true;
+      setIsProcessing(true);
       const newId = Date.now().toString();
       const name = `Residence ${newId}`;
 
@@ -36,6 +39,7 @@ export default function Home() {
 
       if (!saved) {
         console.error("Failed to create project");
+        setIsProcessing(false);
         return false;
       }
 
@@ -50,6 +54,10 @@ export default function Home() {
       });
 
       return true;
+    } catch (error) {
+      console.error(error);
+      setIsProcessing(false);
+      return false;
     } finally {
       isCreatingProjectRef.current = false;
     }
@@ -96,18 +104,27 @@ export default function Home() {
         <div id="upload" className="upload-shell">
           <div className="grid-overlay" />
 
-          <div className="upload-card">
-            <div className="upload-head">
-              <div className="upload-icon">
-                <Layers className="icon" />
+          {isProcessing ? (
+            <div className="upload-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center', minHeight: '300px' }}>
+              <Loader2 className="icon" size={48} style={{ animation: 'spin 2s linear infinite', marginBottom: '1.5rem', color: 'currentColor' }} />
+              <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+              <h3>Setting up workspace...</h3>
+              <p style={{ marginTop: '0.5rem', opacity: 0.7 }}>Please wait while we initialize your design environment.</p>
+            </div>
+          ) : (
+            <div className="upload-card">
+              <div className="upload-head">
+                <div className="upload-icon">
+                  <Layers className="icon" />
+                </div>
+
+                <h3>Upload your floor plan</h3>
+                <p>Supports JPG, PNG, JPEG, WEBP, PDF formats up to 10MB</p>
               </div>
 
-              <h3>Upload your floor plan</h3>
-              <p>Supports JPG, PNG, formats up to 10MB</p>
+              <Upload onComplete={handleUploadComplete} />
             </div>
-
-            <Upload onComplete={handleUploadComplete} />
-          </div>
+          )}
         </div>
       </section>
 
@@ -121,7 +138,7 @@ export default function Home() {
           </div>
 
           <div className="projects-grid">
-            {projects.map(({ id, name, renderedImage, sourceImage, timestamp }) => (
+            {projects.map(({ id, name, renderedImage, sourceImage, timestamp, sharedBy }) => (
               <div key={id} className="project-card group" onClick={() => navigate(`/visualizer/${id}`)}>
                 <div className="preview">
                   <img src={renderedImage || sourceImage} alt="Project"
@@ -139,7 +156,7 @@ export default function Home() {
                     <div className="meta">
                       <Clock size={12} />
                       <span>{new Date(timestamp).toLocaleDateString()}</span>
-                      <span>By JS Mastery</span>
+                      <span>By {sharedBy || userName || 'User'}</span>
                     </div>
                   </div>
                   <div className="arrow">
